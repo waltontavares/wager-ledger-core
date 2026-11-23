@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: core-ledger-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
+      POSTGRES_DB: wager_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d wager_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ministack:
+    image: ministackorg/ministack:latest
+    container_name: core-ledger-ministack
+    ports:
+      - "4566:4566"
+    environment:
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+
+  sqs-init:
+    image: amazon/aws-cli:latest
+    container_name: core-ledger-sqs-init
+    depends_on:
+      - ministack
+    environment:
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sleep 3
+        aws --endpoint-url=http://ministack:4566 sqs create-queue \
+          --queue-name wager-transactions-dlq.fifo \
+          --attributes '{"FifoQueue":"true","ContentBasedDeduplication":"true"}'
+        DLQ_ARN=$$(aws --endpoint-url=http://ministack:4566 sqs get-queue-attributes \
+          --queue-url http://ministack:4566/000000000000/wager-transactions-dlq.fifo \
+          --attribute-names QueueArn --query 'Attributes.QueueArn' --output text)
+        aws --endpoint-url=http://ministack:4566 sqs create-queue \
+          --queue-name wager-transactions.fifo \
+          --attributes "{\"FifoQueue\":\"true\",\"ContentBasedDeduplication\":\"true\",\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"$${DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"3\\\"}\"}"
+        echo "Filas criadas com sucesso no MiniStack!"
+        aws --endpoint-url=http://ministack:4566 sqs list-queues
+
+volumes:
+  postgres_data:

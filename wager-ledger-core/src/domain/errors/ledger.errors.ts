@@ -1,0 +1,44 @@
+export enum LedgerFailureCode {
+  INVALID_MONEY_FORMAT = 'INVALID_MONEY_FORMAT',
+  NEGATIVE_AMOUNT_NOT_ALLOWED = 'NEGATIVE_AMOUNT_NOT_ALLOWED',
+  INSUFFICIENT_FUNDS = 'INSUFFICIENT_FUNDS',
+  ROLLBACK_WOULD_OVERDRAFT = 'ROLLBACK_WOULD_OVERDRAFT',
+  CURRENCY_MISMATCH = 'CURRENCY_MISMATCH',
+  WALLET_NOT_FOUND = 'WALLET_NOT_FOUND',
+  WALLET_ALREADY_EXISTS = 'WALLET_ALREADY_EXISTS',
+  WALLET_SUSPENDED = 'WALLET_SUSPENDED',
+  INVALID_TRANSACTION_KIND = 'INVALID_TRANSACTION_KIND',
+  MISSING_REFERENCE_TRANSACTION = 'MISSING_REFERENCE_TRANSACTION',
+  REFERENCE_NOT_FOUND = 'REFERENCE_NOT_FOUND',
+  INVALID_REFERENCE_TARGET = 'INVALID_REFERENCE_TARGET',
+  REFERENCE_CONTEXT_MISMATCH = 'REFERENCE_CONTEXT_MISMATCH',
+  REFERENCE_AMOUNT_MISMATCH = 'REFERENCE_AMOUNT_MISMATCH',
+  TRANSACTION_ALREADY_REVERSED = 'TRANSACTION_ALREADY_REVERSED',
+  INVALID_TRANSACTION_STATE = 'INVALID_TRANSACTION_STATE',
+  INVALID_LEDGER_ENTRY_INVARIANT = 'INVALID_LEDGER_ENTRY_INVARIANT',
+  DUPLICATE_TRANSACTION = 'DUPLICATE_TRANSACTION',
+  IDEMPOTENCY_PAYLOAD_MISMATCH = 'IDEMPOTENCY_PAYLOAD_MISMATCH',
+  PENDING_REFERENCE_NOT_FOUND = 'PENDING_REFERENCE_NOT_FOUND',
+}
+
+export class DomainError extends Error {
+  constructor(
+    public readonly code: LedgerFailureCode,
+    message: string,
+    public readonly retryable: boolean = false,
+  ) {
+    super(message);
+    this.name = 'DomainError';
+  }
+}
+
+export class InvalidTransactionStateError extends DomainError {
+  constructor(currentStatus: string, attemptedTransition: string) {
+    super(
+      LedgerFailureCode.INVALID_TRANSACTION_STATE,
+      `Cannot transition transaction from terminal/current state '${currentStatus}' to '${attemptedTransition}'`,
+      false,
+    );
+    this.name = 'InvalidTransactionStateError';
+  }
+}
